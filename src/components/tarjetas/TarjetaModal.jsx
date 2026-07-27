@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useData } from "../../context/DataContext";
 import Modal from "../shared/Modal";
+import { ColorPicker } from "../shared/ColorPicker";
 import { BRANDS, BRAND_ORDER } from "../../lib/brands";
 
 const DIAS = Array.from({ length: 28 }, (_, i) => i + 1);
@@ -79,12 +80,11 @@ export default function TarjetaModal({ open, onClose, tarjeta }) {
         </div>
         {form.emisor === "otro" && (
           <div className="field">
-            <label>Color personalizado</label>
-            <div className="swatch-row">
-              <label className="swatch swatch--picker selected" title="Elegir un color" style={{ background: form.color }}>
-                <input type="color" value={form.color} onChange={(e) => set("color", e.target.value)} />
-              </label>
-            </div>
+            <ColorPicker
+              label="Color personalizado"
+              value={form.color}
+              onChange={(color) => set("color", color.toString("hex"))}
+            />
             <p className="hint" style={{ margin: "8px 0 0" }}>Color elegido: {form.color}.</p>
           </div>
         )}

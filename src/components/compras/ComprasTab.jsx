@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useData } from "../../context/DataContext";
 import { formatMoney, formatDateShort } from "../../lib/format";
 import { estaLiquidada } from "../../lib/calc";
@@ -8,10 +8,25 @@ import LinkChip from "../shared/LinkChip";
 import CompraModal from "./CompraModal";
 
 export default function ComprasTab() {
-  const { tarjetas, compras, cuotas, pagos, deleteCompra } = useData();
+  const { tarjetas, compras, cuotas, pagos, adeudos, abonosAdeudo, deleteCompra } = useData();
   const [open, setOpen] = useState(false);
 
   const tarjetaById = Object.fromEntries(tarjetas.map((t) => [t.id, t]));
+
+  // Mapa: compraId → adeudo con saldo pendiente
+  const adeudoPendienteByCompra = useMemo(() => {
+    const map = {};
+    adeudos.forEach((a) => {
+      if (!a.compraId) return;
+      const totalAbonado = abonosAdeudo
+        .filter((ab) => ab.adeudoId === a.id)
+        .reduce((s, ab) => s + ab.monto, 0);
+      const pendiente = Math.max(0, a.montoOriginal - totalAbonado);
+      map[a.compraId] = { ...a, pendiente, totalAbonado };
+    });
+    return map;
+  }, [adeudos, abonosAdeudo]);
+
   const ordenadas = compras
     .filter((c) => !estaLiquidada(c, cuotas, pagos))
     .sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
@@ -43,12 +58,14 @@ export default function ComprasTab() {
               <th>Tarjeta</th>
               <th>Fecha</th>
               <th style={{ textAlign: "right" }}>Monto</th>
+              <th>Adeudo</th>
               <th />
             </tr>
           </thead>
           <tbody>
             {ordenadas.map((c) => {
               const tarjeta = tarjetaById[c.tarjetaId];
+              const adeudo  = adeudoPendienteByCompra[c.id];
               return (
                 <tr key={c.id}>
                   <td>{c.deudor}</td>
@@ -65,6 +82,17 @@ export default function ComprasTab() {
                   <td>{formatDateShort(c.fecha)}</td>
                   <td className="amount">{formatMoney(c.montoTotal)}</td>
                   <td>
+                    {adeudo ? (
+                      <span className={"compra-adeudo-badge " + (adeudo.pendiente === 0 ? "compra-adeudo-badge--ok" : "compra-adeudo-badge--warn")}>
+                        {adeudo.pendiente === 0
+                          ? "✓ Saldado"
+                          : formatMoney(adeudo.pendiente) + " pendiente"}
+                      </span>
+                    ) : (
+                      <span className="compra-adeudo-badge compra-adeudo-badge--none">—</span>
+                    )}
+                  </td>
+                  <td>
                     <button className="btn" onClick={() => handleDelete(c)} title="Eliminar compra">
                       ✕
                     </button>
@@ -74,7 +102,7 @@ export default function ComprasTab() {
             })}
             {ordenadas.length === 0 && (
               <tr>
-                <td colSpan={7} style={{ color: "var(--muted)" }}>
+                <td colSpan={8} style={{ color: "var(--muted)" }}>
                   Aún no hay compras registradas.
                 </td>
               </tr>

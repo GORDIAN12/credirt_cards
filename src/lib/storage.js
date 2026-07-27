@@ -1,19 +1,15 @@
-const KEY = "controlTarjetas.v1";
+// Archivo mantenido por compatibilidad — ya no se usa.
+// La app ahora usa Supabase como fuente de verdad.
+// Si el usuario tenía datos en localStorage, se ignoran al recargar.
 
-export function loadState(seedFactory) {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {
-    // storage vacío o corrupto: se reinicia con datos de ejemplo
-  }
-  return seedFactory();
+export function loadState() {
+  return null; // ignorar localStorage
 }
 
-export function saveState(state) {
-  localStorage.setItem(KEY, JSON.stringify(state));
+export function saveState() {
+  // no-op
 }
 
 export function resetState() {
-  localStorage.removeItem(KEY);
+  localStorage.removeItem("controlTarjetas.v1");
 }

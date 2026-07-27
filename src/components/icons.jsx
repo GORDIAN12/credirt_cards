@@ -86,3 +86,15 @@ export function IconClose(props) {
     </svg>
   );
 }
+
+export function IconAdeudos(props) {
+  return (
+    <svg {...common} {...props}>
+      <circle cx="10" cy="7" r="3.5" />
+      <path d="M3 20c0-4 3.1-6.5 7-6.5" />
+      <circle cx="17.5" cy="17" r="4" />
+      <path d="M17.5 14.5v.6M17.5 19.4v.6" />
+      <path d="M15.8 15.8c.3-.5.9-.9 1.7-.9.9 0 1.6.6 1.6 1.4 0 .7-.5 1.1-1.3 1.4-.9.3-1.6.7-1.6 1.5 0 .8.7 1.3 1.6 1.3.8 0 1.4-.4 1.7-.9" />
+    </svg>
+  );
+}

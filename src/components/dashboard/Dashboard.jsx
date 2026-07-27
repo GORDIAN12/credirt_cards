@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useData } from "../../context/DataContext";
 import {
   saldoGlobal,
@@ -13,7 +14,7 @@ import LinkChip from "../shared/LinkChip";
 import CorteSelector from "./CorteSelector";
 
 export default function Dashboard() {
-  const { tarjetas, compras, cuotas, pagos } = useData();
+  const { tarjetas, compras, cuotas, pagos, adeudos, abonosAdeudo } = useData();
 
   const total = saldoGlobal(compras, cuotas, pagos);
   const vencimientos = proximosVencimientos(tarjetas, compras, cuotas, pagos);
@@ -28,9 +29,28 @@ export default function Dashboard() {
     .filter((c) => !estaLiquidada(c, cuotas, pagos))
     .sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
 
+  // ── Adeudos pendientes ──────────────────────────────────────────────────
+  const adeudosConSaldo = useMemo(() => {
+    return adeudos.map((a) => {
+      const totalAbonado = abonosAdeudo
+        .filter((ab) => ab.adeudoId === a.id)
+        .reduce((sum, ab) => sum + ab.monto, 0);
+      const pendiente = Math.max(0, a.montoOriginal - totalAbonado);
+      return { ...a, totalAbonado, pendiente };
+    });
+  }, [adeudos, abonosAdeudo]);
+
+  const adeudosPendientes = adeudosConSaldo.filter((a) => a.pendiente > 0);
+  const totalAdeudado     = adeudosPendientes.reduce((s, a) => s + a.pendiente, 0);
+
+  // adeudos con compra vinculada — para mostrar el tag de compra
+  const compraById = Object.fromEntries(compras.map((c) => [c.id, c]));
+
   return (
     <section className="panel active">
-      <div className="kpi-row kpi-row--3">
+
+      {/* ── KPIs ─────────────────────────────────────────────────────────── */}
+      <div className="kpi-row">
         <div className="kpi">
           <div className="kpi__label">Saldo pendiente</div>
           <div className="kpi__value">{formatMoney(total)}</div>
@@ -54,18 +74,33 @@ export default function Dashboard() {
           <div className="kpi__value">{msiActivos(compras, cuotas)}</div>
           <div className="kpi__meta">{formatMoney(restanteMSI)} restantes en cuotas</div>
         </div>
+        <div className={"kpi" + (totalAdeudado > 0 ? " kpi--adeudo" : "")}>
+          <div className="kpi__label">Adeudos por cobrar</div>
+          <div className="kpi__value">{formatMoney(totalAdeudado)}</div>
+          <div className="kpi__meta">
+            {adeudosPendientes.length > 0
+              ? adeudosPendientes.length + " persona" + (adeudosPendientes.length > 1 ? "s" : "") + " te deben"
+              : "Sin adeudos pendientes"}
+          </div>
+        </div>
       </div>
 
+      {/* ── Próximo corte ─────────────────────────────────────────────────── */}
       <h2 className="section-title">Próximo corte y fecha de pago</h2>
       <CorteSelector tarjetas={activos} defaultId={corte?.tarjeta.id} />
 
+      {/* ── Tus tarjetas ─────────────────────────────────────────────────── */}
       <h2 className="section-title">Tus tarjetas</h2>
       <div className="card-gallery">
         {tarjetas.map((t) => (
           <CardTile key={t.id} tarjeta={t} />
         ))}
+        {tarjetas.length === 0 && (
+          <p style={{ color: "var(--muted)", fontSize: 13 }}>Sin tarjetas registradas aún.</p>
+        )}
       </div>
 
+      {/* ── Dos columnas: pagos + compras ─────────────────────────────────── */}
       <div className="two-col" style={{ marginTop: 30 }}>
         <div>
           <h2 className="section-title" style={{ marginTop: 0 }}>Próximos pagos</h2>
@@ -111,6 +146,47 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* ── Adeudos pendientes ─────────────────────────────────────────────── */}
+      {adeudosPendientes.length > 0 && (
+        <>
+          <h2 className="section-title">Adeudos de terceros pendientes</h2>
+          <div className="surface-list">
+            {adeudosPendientes.map((a) => {
+              const pct = Math.min(100, (a.totalAbonado / a.montoOriginal) * 100);
+              const compraVinculada = a.compraId ? compraById[a.compraId] : null;
+              return (
+                <div className="adeudo-dash-row" key={a.id}>
+                  <div className="adeudo-dash-row__avatar">
+                    {a.persona.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="adeudo-dash-row__body">
+                    <div className="adeudo-dash-row__top">
+                      <span className="adeudo-dash-row__name">{a.persona}</span>
+                      {compraVinculada && (
+                        <span className="adeudo-dash-row__compra">
+                          🔗 {compraVinculada.concepto}
+                        </span>
+                      )}
+                    </div>
+                    {a.concepto && (
+                      <div className="adeudo-dash-row__concepto">{a.concepto}</div>
+                    )}
+                    <div className="adeudo-progress" style={{ marginTop: 6, marginBottom: 0 }}>
+                      <div className="adeudo-progress__fill" style={{ width: pct + "%" }} />
+                    </div>
+                  </div>
+                  <div className="adeudo-dash-row__amounts">
+                    <span className="adeudo-dash-row__pending">{formatMoney(a.pendiente)}</span>
+                    <span className="adeudo-dash-row__total">de {formatMoney(a.montoOriginal)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
     </section>
   );
 }

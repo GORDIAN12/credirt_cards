@@ -1,4 +1,4 @@
-import { IconDashboard, IconCompras, IconPagos, IconMsi, IconTarjetas, IconLiquidado } from "./icons";
+import { IconDashboard, IconCompras, IconPagos, IconMsi, IconTarjetas, IconLiquidado, IconAdeudos } from "./icons";
 
 export const NAV_TABS = [
   { key: "dashboard", label: "Dashboard", Icon: IconDashboard },
@@ -7,4 +7,5 @@ export const NAV_TABS = [
   { key: "msi", label: "MSI", Icon: IconMsi },
   { key: "tarjetas", label: "Tarjetas", Icon: IconTarjetas },
   { key: "liquidado", label: "Liquidado", Icon: IconLiquidado },
+  { key: "adeudos", label: "Adeudos", Icon: IconAdeudos },
 ];

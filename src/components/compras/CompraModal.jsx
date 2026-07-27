@@ -3,19 +3,22 @@ import { useData } from "../../context/DataContext";
 import Modal from "../shared/Modal";
 import { formatMoney } from "../../lib/format";
 
+const today = () => new Date().toISOString().slice(0, 10);
+
 const empty = {
   deudor: "",
   montoTotal: "",
   concepto: "",
-  fecha: "",
+  fecha: today(),
   comercioUrl: "",
   tarjetaId: "",
   esMSI: false,
   numeroMeses: "",
+  registrarAdeudo: false,
 };
 
 export default function CompraModal({ open, onClose }) {
-  const { tarjetas, addCompra } = useData();
+  const { tarjetas, addCompra, addAdeudo } = useData();
   const [form, setForm] = useState(empty);
 
   function set(field, value) {
@@ -27,11 +30,30 @@ export default function CompraModal({ open, onClose }) {
     onClose();
   }
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault();
     if (!form.deudor || !form.montoTotal || !form.concepto || !form.fecha || !form.tarjetaId) return;
     if (form.esMSI && !form.numeroMeses) return;
-    addCompra(form);
+
+    // Primero creamos la compra y obtenemos su ID (el makeId se genera en addCompra)
+    // Para poder vincular el adeudo, necesitamos pasar el compraId.
+    // Usamos una estrategia: generamos el id aquí y lo pasamos a ambas funciones.
+    const { makeId } = await import("../../lib/id");
+    const compraId = makeId("c");
+
+    await addCompra({ ...form, _id: compraId });
+
+    if (form.registrarAdeudo && form.deudor) {
+      await addAdeudo({
+        persona: form.deudor,
+        compraId,
+        montoOriginal: Number(form.montoTotal),
+        concepto: form.concepto,
+        fecha: form.fecha,
+        notas: "",
+      });
+    }
+
     close();
   }
 
@@ -110,6 +132,8 @@ export default function CompraModal({ open, onClose }) {
               ))}
           </select>
         </div>
+
+        {/* ── MSI ── */}
         <div className="checkbox-row">
           <input
             type="checkbox"
@@ -138,6 +162,29 @@ export default function CompraModal({ open, onClose }) {
             </div>
           </div>
         )}
+
+        {/* ── Auto-adeudo ── */}
+        <div className="compra-adeudo-banner">
+          <div className="checkbox-row" style={{ margin: 0 }}>
+            <input
+              type="checkbox"
+              id="adeudo-toggle"
+              checked={form.registrarAdeudo}
+              onChange={(e) => set("registrarAdeudo", e.target.checked)}
+            />
+            <label htmlFor="adeudo-toggle">
+              Registrar automáticamente como <strong>Adeudo de Tercero</strong>
+            </label>
+          </div>
+          {form.registrarAdeudo && (
+            <p className="compra-adeudo-hint">
+              Se creará un adeudo a nombre de <strong>{form.deudor || "…"}</strong> por{" "}
+              <strong>{form.montoTotal ? formatMoney(Number(form.montoTotal)) : "$0.00"}</strong>,
+              vinculado a esta compra. Podrás ir registrando los abonos en la pestaña Adeudos.
+            </p>
+          )}
+        </div>
+
         <div className="modal-actions">
           <button type="button" className="btn" onClick={close}>
             Cancelar
