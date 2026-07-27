@@ -1,9 +1,10 @@
-// Envía notificaciones de Telegram vía Netlify Functions.
+// Envía notificaciones de Telegram vía la Edge Function de Netlify.
 // Cada usuario pasa SU chatId (guardado en profiles.telegram_chat_id).
 // El token del bot es único y vive solo en el servidor.
-// El bug de Node 18 IPv6 ya está resuelto forzando IPv4 en el servidor.
+// Nota: usa Edge Function (no una función clásica) porque AWS Lambda
+// (us-east-1) se quedaba colgado al contactar api.telegram.org.
 
-const ENDPOINT = "/.netlify/functions/telegram-notify";
+const ENDPOINT = "/api/telegram-notify";
 
 export async function notifyTelegram(text, chatId) {
   if (!text || !chatId) return { ok: false, error: "Falta texto o chatId" };

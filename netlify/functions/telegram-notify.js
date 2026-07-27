@@ -1,137 +1,85 @@
-import https from "https";
+// Netlify Edge Function (Deno Deploy), no AWS Lambda.
+// Se migró desde netlify/functions/telegram-notify.js porque, incluso forzando
+// IPv4, las funciones clásicas (AWS Lambda us-east-1) seguían colgándose al
+// contactar api.telegram.org: Telegram limita/bloquea rangos de IP de nubes
+// grandes y el tráfico se queda sin respuesta (timeout) en vez de rechazarse.
+// La red de Edge Functions es distinta y evita ese bloqueo.
 
-async function processNotify(text, chatId) {
-  let rawToken = process.env.TELEGRAM_BOT_TOKEN || "";
-  let botToken = "";
-  
-  // Extraer agresivamente el token con Regex, ignorando cualquier texto extra (ej. si el usuario pegó el mensaje entero de BotFather)
-  const tokenMatch = rawToken.match(/\d{8,12}:[A-Za-z0-9_-]{35}/);
-  if (tokenMatch) {
-    botToken = tokenMatch[0];
-  }
-
-  if (!botToken) {
-    console.error("Falta TELEGRAM_BOT_TOKEN en las variables de entorno o formato inválido");
-    return { status: 500, data: { ok: false, error: "TELEGRAM_BOT_TOKEN no configurado en Netlify" } };
-  }
-
-  if (!text) {
-    return { status: 400, data: { ok: false, error: "Falta el texto del mensaje" } };
-  }
-  if (!chatId) {
-    return { status: 400, data: { ok: false, error: "Falta chatId del usuario" } };
-  }
-
-  const payload = JSON.stringify({
-    chat_id: chatId,
-    text,
-    parse_mode: "HTML",
-    disable_web_page_preview: true,
-  });
-
-  return new Promise((resolve) => {
-    const options = {
-      hostname: "api.telegram.org",
-      port: 443,
-      path: `/bot${botToken}/sendMessage`,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(payload),
-      },
-      family: 4, // FORZAR IPv4 para evitar que Node 18 se quede colgado en Netlify/AWS con IPv6
-      timeout: 8000,
-    };
-
-    const req = https.request(options, (res) => {
-      let body = "";
-      res.on("data", (chunk) => (body += chunk));
-      res.on("end", () => {
-        try {
-          const data = JSON.parse(body);
-          if (!data.ok) {
-            console.error("Telegram API error:", data);
-            resolve({
-              status: 502,
-              data: { ok: false, error: data.description || `Error de Telegram (HTTP ${res.statusCode})` },
-            });
-          } else {
-            resolve({ status: 200, data: { ok: true } });
-          }
-        } catch (e) {
-          resolve({ status: 502, data: { ok: false, error: "Respuesta inválida de Telegram" } });
-        }
-      });
-    });
-
-    req.on("error", (err) => {
-      console.error("Error HTTPS al contactar Telegram:", err);
-      resolve({ status: 502, data: { ok: false, error: `No se pudo contactar a Telegram: ${err.message}` } });
-    });
-
-    req.on("timeout", () => {
-      req.destroy();
-      resolve({
-        status: 502,
-        data: { ok: false, error: "Tiempo de espera agotado al contactar Telegram (IPv4 Timeout)" },
-      });
-    });
-
-    req.write(payload);
-    req.end();
-  });
-}
-
-// Formato v1 (exports.handler)
-export async function handler(event) {
-  if (event.httpMethod !== "POST") {
-    return { statusCode: 405, body: "Method Not Allowed" };
-  }
-
-  let text, chatId;
-  try {
-    const body = JSON.parse(event.body || "{}");
-    text = typeof body?.text === "string" ? body.text.trim() : "";
-    chatId =
-      (typeof body?.chatId === "string" && body.chatId.trim()) ||
-      (typeof body?.chat_id === "string" && body.chat_id.trim()) ||
-      process.env.TELEGRAM_CHAT_ID ||
-      "";
-  } catch {
-    return {
-      statusCode: 400,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ok: false, error: "Body JSON inválido" }),
-    };
-  }
-
-  const { status, data } = await processNotify(text, chatId);
-  return {
-    statusCode: status,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  };
-}
-
-// Formato v2 (export default)
-export default async (req) => {
-  if (req.method !== "POST") {
+export default async (request) => {
+  if (request.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
 
   let text, chatId;
   try {
-    const body = await req.json();
+    const body = await request.json();
     text = typeof body?.text === "string" ? body.text.trim() : "";
     chatId =
       (typeof body?.chatId === "string" && body.chatId.trim()) ||
       (typeof body?.chat_id === "string" && body.chat_id.trim()) ||
-      process.env.TELEGRAM_CHAT_ID ||
+      Deno.env.get("TELEGRAM_CHAT_ID") ||
       "";
   } catch {
     return Response.json({ ok: false, error: "Body JSON inválido" }, { status: 400 });
   }
 
-  const { status, data } = await processNotify(text, chatId);
-  return Response.json(data, { status });
+  let rawToken = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
+  let botToken = rawToken.replace(/^["']|["']$/g, "").trim();
+  if (botToken.toLowerCase().startsWith("bot")) {
+    botToken = botToken.slice(3).trim();
+  }
+
+  if (!botToken) {
+    console.error("Falta TELEGRAM_BOT_TOKEN en las variables de entorno (scope Edge functions)");
+    return Response.json(
+      { ok: false, error: "TELEGRAM_BOT_TOKEN no configurado en Netlify (revisa el scope 'Edge functions')" },
+      { status: 500 }
+    );
+  }
+  if (!text) {
+    return Response.json({ ok: false, error: "Falta el texto del mensaje" }, { status: 400 });
+  }
+  if (!chatId) {
+    return Response.json({ ok: false, error: "Falta chatId del usuario" }, { status: 400 });
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+      }),
+      signal: controller.signal,
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!data || !data.ok) {
+      console.error("Telegram API error:", data);
+      return Response.json(
+        { ok: false, error: data?.description || `Error de Telegram (HTTP ${res.status})` },
+        { status: 502 }
+      );
+    }
+    return Response.json({ ok: true }, { status: 200 });
+  } catch (err) {
+    if (err.name === "AbortError") {
+      return Response.json(
+        { ok: false, error: "Tiempo de espera agotado al contactar Telegram (Edge Timeout)" },
+        { status: 502 }
+      );
+    }
+    console.error("Error al contactar Telegram desde Edge Function:", err);
+    return Response.json({ ok: false, error: `No se pudo contactar a Telegram: ${err.message}` }, { status: 502 });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 };
+
+export const config = { path: "/api/telegram-notify" };
