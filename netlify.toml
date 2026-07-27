@@ -2,9 +2,8 @@
   command = "npm run build"
   publish = "dist"
 
-[[edge_functions]]
-  function = "telegram-notify"
-  path = "/api/telegram-notify"
+[functions]
+  directory = "netlify/functions"
 
 [[redirects]]
   from = "/*"
