@@ -102,7 +102,6 @@ export function proximosVencimientos(tarjetas, compras, cuotas, pagos) {
       if (!compra) return;
       const tarjeta = tarjetas.find((t) => t.id === compra.tarjetaId);
       items.push({
-        key: cu.id,
         tarjeta,
         monto: cu.montoProgramado,
         fecha: cu.fechaLimite,
@@ -118,10 +117,28 @@ export function proximosVencimientos(tarjetas, compras, cuotas, pagos) {
       const tarjeta = tarjetas.find((t) => t.id === compra.tarjetaId);
       if (!tarjeta) return;
       const fecha = nextOccurrenceOfDay(tarjeta.fechaLimitePago).toISOString().slice(0, 10);
-      items.push({ key: compra.id, tarjeta, monto: saldo, fecha, detalle: compra.concepto });
+      items.push({ tarjeta, monto: saldo, fecha, detalle: compra.concepto });
     });
 
-  return items.sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
+  // Se agrupa por tarjeta + fecha de pago (mismo corte) para que el total a
+  // pagar sea acumulativo por tarjeta, en vez de mostrar cada compra/cuota
+  // por separado y "revelar" la siguiente hasta pagar la anterior.
+  const grupos = new Map();
+  items
+    .filter((item) => item.tarjeta)
+    .forEach((item) => {
+      const key = `${item.tarjeta.id}__${item.fecha}`;
+      if (!grupos.has(key)) {
+        grupos.set(key, { key, tarjeta: item.tarjeta, fecha: item.fecha, monto: 0, detalles: [] });
+      }
+      const grupo = grupos.get(key);
+      grupo.monto = round2(grupo.monto + item.monto);
+      grupo.detalles.push(item.detalle);
+    });
+
+  return [...grupos.values()]
+    .map((g) => ({ ...g, detalle: g.detalles.join(" + ") }))
+    .sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
 }
 
 export function proximoCorte(tarjetas) {

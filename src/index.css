@@ -166,7 +166,7 @@ body {
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 28px;
   margin: 20px 0 30px;
   padding: 10px 14px 10px 20px;
   background: var(--surface);
@@ -225,7 +225,7 @@ body {
 .navbar__tabs {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 8px;
   flex: 1;
   min-width: 0;
 }
@@ -240,7 +240,7 @@ body {
   font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 650;
-  padding: 9px 13px;
+  padding: 9px 16px;
   border-radius: 999px;
   cursor: pointer;
   white-space: nowrap;
@@ -276,7 +276,7 @@ body {
 .navbar-account {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   flex-shrink: 0;
 }
 .navbar-account__name {
@@ -687,6 +687,38 @@ h2.section-title {
   color: var(--accent);
 }
 
+.filtro-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.filtro-chip {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.filtro-chip:hover {
+  color: var(--text);
+}
+.filtro-chip.active {
+  color: var(--gold-ink);
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.filtro-chip--estado.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
 .card-gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -818,6 +850,18 @@ h2.section-title {
 }
 .row:last-child {
   border-bottom: none;
+}
+.row--clickable {
+  padding: 0;
+}
+.row--clickable > div:first-child {
+  padding: 13px 16px;
+  gap: 14px;
+}
+.row__expand {
+  width: 100%;
+  padding: 0 16px 14px;
+  box-sizing: border-box;
 }
 .row__main {
   flex: 1;
@@ -1747,4 +1791,101 @@ footer.note {
   display: block;
   font-size: 11px;
   color: var(--muted);
+}
+
+/* ── Comprobante de pago (imprimible / PDF) ─────────────────────────────── */
+.comprobante-modal {
+  max-width: 560px;
+}
+.comprobante-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.comprobante__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+.comprobante__title {
+  font-size: 18px;
+  font-weight: 700;
+}
+.comprobante__sub {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.comprobante__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.comprobante__label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+.comprobante__value {
+  font-size: 14px;
+  font-weight: 600;
+}
+.comprobante__historial-title {
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+.comprobante__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.comprobante__table th,
+.comprobante__table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+.comprobante__footer {
+  margin-top: 18px;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .comprobante-print,
+  .comprobante-print * {
+    visibility: visible;
+  }
+  .comprobante-print {
+    position: absolute;
+    inset: 0;
+    padding: 24px;
+  }
+  .comprobante-backdrop {
+    position: static;
+    background: none;
+    padding: 0;
+  }
+  .comprobante-modal {
+    box-shadow: none;
+    border: none;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+  }
+  .no-print {
+    display: none !important;
+  }
 }
