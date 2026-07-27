@@ -4,13 +4,21 @@
 
 const ENDPOINT = "/.netlify/functions/telegram-notify";
 
-export function notifyTelegram(text, chatId) {
-  if (!text || !chatId) return;
-  fetch(ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, chatId: String(chatId) }),
-  }).catch((err) => {
+export async function notifyTelegram(text, chatId) {
+  if (!text || !chatId) return { ok: false, error: "Falta texto o chatId" };
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, chatId: String(chatId) }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, error: data.error || `Error servidor HTTP ${res.status}` };
+    }
+    return data;
+  } catch (err) {
     console.warn("No se pudo enviar la notificación de Telegram:", err.message);
-  });
+    return { ok: false, error: err.message || "Error de red" };
+  }
 }

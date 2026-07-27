@@ -35,14 +35,23 @@ export default function TelegramSettings({ open, onClose }) {
     }
   }
 
-  function sendTest() {
+  async function sendTest() {
     const id = chatId.trim() || profile?.telegram_chat_id;
     if (!id) {
       setError("Guarda primero tu Chat ID.");
       return;
     }
-    notifyTelegram("✅ Prueba de <b>Control de Tarjetas</b>: tu Telegram está vinculado.", id);
-    setInfo("Mensaje de prueba enviado. Revisa Telegram.");
+    setBusy(true);
+    setError("");
+    setInfo("Enviando prueba...");
+    const res = await notifyTelegram("✅ Prueba de <b>Control de Tarjetas</b>: tu Telegram está vinculado.", id);
+    if (res?.ok) {
+      setInfo("Mensaje de prueba enviado con éxito. Revisa Telegram.");
+    } else {
+      setInfo("");
+      setError(res?.error || "No se pudo enviar la prueba.");
+    }
+    setBusy(false);
   }
 
   const botLink = BOT_USERNAME ? `https://t.me/${BOT_USERNAME.replace(/^@/, "")}` : null;

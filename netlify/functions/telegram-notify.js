@@ -1,41 +1,26 @@
-// Función serverless (Netlify Functions v2) que reenvía un mensaje a Telegram.
-// - TELEGRAM_BOT_TOKEN: un solo bot para toda la app (secreto del servidor)
-// - chatId: viene en el body (chat personal de cada usuario)
-// - TELEGRAM_CHAT_ID: fallback opcional si el body no trae chatId
+// Función serverless compatible con Netlify Functions v1 y v2.
+// Reenvía mensajes a la API de Telegram.
 
-export default async (req) => {
-  if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
-  }
+async function processNotify(text, chatId) {
+  const rawToken = process.env.TELEGRAM_BOT_TOKEN || "";
+  const botToken = rawToken.replace(/^["']|["']$/g, "").trim();
 
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!botToken) {
     console.error("Falta TELEGRAM_BOT_TOKEN en las variables de entorno");
-    return Response.json({ ok: false, error: "Telegram no configurado" }, { status: 500 });
-  }
-
-  let text;
-  let chatId;
-  try {
-    const body = await req.json();
-    text = typeof body?.text === "string" ? body.text.trim() : "";
-    chatId =
-      (typeof body?.chatId === "string" && body.chatId.trim()) ||
-      (typeof body?.chat_id === "string" && body.chat_id.trim()) ||
-      process.env.TELEGRAM_CHAT_ID ||
-      "";
-  } catch {
-    return Response.json({ ok: false, error: "Body inválido" }, { status: 400 });
+    return { status: 500, data: { ok: false, error: "TELEGRAM_BOT_TOKEN no configurado en Netlify" } };
   }
 
   if (!text) {
-    return Response.json({ ok: false, error: "Falta el texto del mensaje" }, { status: 400 });
+    return { status: 400, data: { ok: false, error: "Falta el texto del mensaje" } };
   }
   if (!chatId) {
-    return Response.json({ ok: false, error: "Falta chatId del usuario" }, { status: 400 });
+    return { status: 400, data: { ok: false, error: "Falta chatId del usuario" } };
   }
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
     const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -45,17 +30,78 @@ export default async (req) => {
         parse_mode: "HTML",
         disable_web_page_preview: true,
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     const data = await res.json();
     if (!res.ok || !data.ok) {
       console.error("Telegram API error:", data);
-      return Response.json({ ok: false, error: data.description || "Error de Telegram" }, { status: 502 });
+      return {
+        status: 502,
+        data: { ok: false, error: data.description || `Error de Telegram (código ${data.error_code || res.status})` },
+      };
     }
 
-    return Response.json({ ok: true });
+    return { status: 200, data: { ok: true } };
   } catch (err) {
     console.error("Error al contactar Telegram:", err);
-    return Response.json({ ok: false, error: "No se pudo contactar a Telegram" }, { status: 502 });
+    const msg = err.name === "AbortError" ? "Tiempo de espera agotado al contactar Telegram" : "No se pudo contactar a Telegram";
+    return { status: 502, data: { ok: false, error: msg } };
   }
+}
+
+// Formato v1 (exports.handler)
+export async function handler(event) {
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, body: "Method Not Allowed" };
+  }
+
+  let text, chatId;
+  try {
+    const body = JSON.parse(event.body || "{}");
+    text = typeof body?.text === "string" ? body.text.trim() : "";
+    chatId =
+      (typeof body?.chatId === "string" && body.chatId.trim()) ||
+      (typeof body?.chat_id === "string" && body.chat_id.trim()) ||
+      process.env.TELEGRAM_CHAT_ID ||
+      "";
+  } catch {
+    return {
+      statusCode: 400,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ok: false, error: "Body JSON inválido" }),
+    };
+  }
+
+  const { status, data } = await processNotify(text, chatId);
+  return {
+    statusCode: status,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  };
+}
+
+// Formato v2 (export default)
+export default async (req) => {
+  if (req.method !== "POST") {
+    return new Response("Method Not Allowed", { status: 405 });
+  }
+
+  let text, chatId;
+  try {
+    const body = await req.json();
+    text = typeof body?.text === "string" ? body.text.trim() : "";
+    chatId =
+      (typeof body?.chatId === "string" && body.chatId.trim()) ||
+      (typeof body?.chat_id === "string" && body.chat_id.trim()) ||
+      process.env.TELEGRAM_CHAT_ID ||
+      "";
+  } catch {
+    return Response.json({ ok: false, error: "Body JSON inválido" }, { status: 400 });
+  }
+
+  const { status, data } = await processNotify(text, chatId);
+  return Response.json(data, { status });
 };
