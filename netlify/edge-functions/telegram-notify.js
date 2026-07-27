@@ -24,9 +24,12 @@ export default async (request) => {
   }
 
   let rawToken = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
-  let botToken = rawToken.replace(/^["']|["']$/g, "").trim();
-  if (botToken.toLowerCase().startsWith("bot")) {
-    botToken = botToken.slice(3).trim();
+  let botToken = "";
+  
+  // Extraer agresivamente el token con Regex, ignorando cualquier texto extra (ej. mensaje largo de BotFather)
+  const tokenMatch = rawToken.match(/\d{8,12}:[A-Za-z0-9_-]{35}/);
+  if (tokenMatch) {
+    botToken = tokenMatch[0];
   }
 
   if (!botToken) {
