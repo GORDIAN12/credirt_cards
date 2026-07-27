@@ -1,6 +1,8 @@
 // Función serverless compatible con Netlify Functions v1 y v2.
 // Reenvía mensajes a la API de Telegram.
 
+import https from "https";
+
 async function processNotify(text, chatId) {
   let rawToken = process.env.TELEGRAM_BOT_TOKEN || "";
   let botToken = rawToken.replace(/^["']|["']$/g, "").trim();
@@ -20,45 +22,64 @@ async function processNotify(text, chatId) {
     return { status: 400, data: { ok: false, error: "Falta chatId del usuario" } };
   }
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 9000);
+  const payload = JSON.stringify({
+    chat_id: chatId,
+    text,
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+  });
 
-    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: "api.telegram.org",
+      port: 443,
+      path: `/bot${botToken}/sendMessage`,
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        parse_mode: "HTML",
-        disable_web_page_preview: true,
-      }),
-      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(payload),
+      },
+      family: 4, // FORZAR IPv4 para evitar que Node 18 se quede colgado en Netlify/AWS con IPv6
+      timeout: 8000,
+    };
+
+    const req = https.request(options, (res) => {
+      let body = "";
+      res.on("data", (chunk) => (body += chunk));
+      res.on("end", () => {
+        try {
+          const data = JSON.parse(body);
+          if (!data.ok) {
+            console.error("Telegram API error:", data);
+            resolve({
+              status: 502,
+              data: { ok: false, error: data.description || `Error de Telegram (HTTP ${res.statusCode})` },
+            });
+          } else {
+            resolve({ status: 200, data: { ok: true } });
+          }
+        } catch (e) {
+          resolve({ status: 502, data: { ok: false, error: "Respuesta inválida de Telegram" } });
+        }
+      });
     });
 
-    clearTimeout(timeoutId);
+    req.on("error", (err) => {
+      console.error("Error HTTPS al contactar Telegram:", err);
+      resolve({ status: 502, data: { ok: false, error: `No se pudo contactar a Telegram: ${err.message}` } });
+    });
 
-    const data = await res.json();
-    if (!res.ok || !data.ok) {
-      console.error("Telegram API error:", data);
-      return {
+    req.on("timeout", () => {
+      req.destroy();
+      resolve({
         status: 502,
-        data: {
-          ok: false,
-          error: data.description || `Error de Telegram (código ${data.error_code || res.status})`,
-        },
-      };
-    }
+        data: { ok: false, error: "Tiempo de espera agotado al contactar Telegram (IPv4 Timeout)" },
+      });
+    });
 
-    return { status: 200, data: { ok: true } };
-  } catch (err) {
-    console.error("Error al contactar Telegram:", err);
-    const msg =
-      err.name === "AbortError"
-        ? "Tiempo de espera agotado al contactar api.telegram.org. Verifica que TELEGRAM_BOT_TOKEN en Netlify sea el token secreto de @BotFather (ej. 123456789:ABC...) y no el @username."
-        : `No se pudo contactar a Telegram: ${err.message}`;
-    return { status: 502, data: { ok: false, error: msg } };
-  }
+    req.write(payload);
+    req.end();
+  });
 }
 
 // Formato v1 (exports.handler)
