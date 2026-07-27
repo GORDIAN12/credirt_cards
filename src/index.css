@@ -273,9 +273,56 @@ body {
 .navbar__burger:hover {
   border-color: var(--accent);
 }
+.navbar-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.navbar-account__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.navbar-account__tg.is-linked {
+  border-color: var(--good);
+  color: var(--good);
+}
+.telegram-steps {
+  margin: 0 0 16px;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.telegram-steps li + li {
+  margin-top: 8px;
+}
+.telegram-steps a {
+  color: var(--accent);
+}
+.telegram-steps code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+}
+.drawer-account {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid var(--line);
+}
+.drawer-account .navbar-account {
+  width: 100%;
+  justify-content: space-between;
+}
 @media (max-width: 880px) {
   .navbar__tabs,
-  .navbar .global-stat {
+  .navbar .global-stat,
+  .navbar .navbar-account {
     display: none;
   }
   .navbar__burger {
@@ -288,6 +335,77 @@ body {
   .navbar .brand__sub {
     display: none;
   }
+}
+
+.auth-screen {
+  flex: 1;
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, color-mix(in srgb, var(--accent) 18%, transparent), transparent),
+    var(--ink);
+}
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 28px 24px 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+.auth-card__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  margin-bottom: 18px;
+}
+.auth-tabs button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  padding: 10px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.auth-tabs button.active {
+  background: var(--gold);
+  color: var(--gold-ink);
+}
+.auth-form .field {
+  margin-bottom: 12px;
+}
+.auth-submit {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px 15px;
+}
+.auth-msg {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.auth-msg--error {
+  color: var(--bad);
+}
+.auth-msg--info {
+  color: var(--good);
 }
 
 .drawer-backdrop {
@@ -805,6 +923,16 @@ h2.section-title {
 }
 .btn--dashed:hover {
   color: var(--accent);
+  border-color: var(--accent);
+}
+.btn--ghost {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--muted);
+  padding: 7px 12px;
+}
+.btn--ghost:hover {
+  color: var(--text);
   border-color: var(--accent);
 }
 

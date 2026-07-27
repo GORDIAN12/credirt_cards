@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { NAV_TABS } from "./navTabs";
 import { IconClose } from "./icons";
 
-export default function Drawer({ open, onClose, active, onChange, brand, balance }) {
+export default function Drawer({ open, onClose, active, onChange, brand, balance, account }) {
   useEffect(() => {
     if (!open) return undefined;
     function onKey(e) {
@@ -44,6 +44,7 @@ export default function Drawer({ open, onClose, active, onChange, brand, balance
           ))}
         </nav>
         {balance}
+        {account ? <div className="drawer-account">{account}</div> : null}
       </div>
     </div>
   );
