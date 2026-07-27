@@ -2,13 +2,16 @@ import https from "https";
 
 async function processNotify(text, chatId) {
   let rawToken = process.env.TELEGRAM_BOT_TOKEN || "";
-  let botToken = rawToken.replace(/^["']|["']$/g, "").trim();
-  if (botToken.toLowerCase().startsWith("bot")) {
-    botToken = botToken.slice(3).trim();
+  let botToken = "";
+  
+  // Extraer agresivamente el token con Regex, ignorando cualquier texto extra (ej. si el usuario pegó el mensaje entero de BotFather)
+  const tokenMatch = rawToken.match(/\d{8,12}:[A-Za-z0-9_-]{35}/);
+  if (tokenMatch) {
+    botToken = tokenMatch[0];
   }
 
   if (!botToken) {
-    console.error("Falta TELEGRAM_BOT_TOKEN en las variables de entorno");
+    console.error("Falta TELEGRAM_BOT_TOKEN en las variables de entorno o formato inválido");
     return { status: 500, data: { ok: false, error: "TELEGRAM_BOT_TOKEN no configurado en Netlify" } };
   }
 
