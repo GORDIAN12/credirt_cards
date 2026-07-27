@@ -2,8 +2,11 @@
 // Reenvía mensajes a la API de Telegram.
 
 async function processNotify(text, chatId) {
-  const rawToken = process.env.TELEGRAM_BOT_TOKEN || "";
-  const botToken = rawToken.replace(/^["']|["']$/g, "").trim();
+  let rawToken = process.env.TELEGRAM_BOT_TOKEN || "";
+  let botToken = rawToken.replace(/^["']|["']$/g, "").trim();
+  if (botToken.toLowerCase().startsWith("bot")) {
+    botToken = botToken.slice(3).trim();
+  }
 
   if (!botToken) {
     console.error("Falta TELEGRAM_BOT_TOKEN en las variables de entorno");
@@ -19,7 +22,7 @@ async function processNotify(text, chatId) {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
 
     const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST",
@@ -40,14 +43,20 @@ async function processNotify(text, chatId) {
       console.error("Telegram API error:", data);
       return {
         status: 502,
-        data: { ok: false, error: data.description || `Error de Telegram (código ${data.error_code || res.status})` },
+        data: {
+          ok: false,
+          error: data.description || `Error de Telegram (código ${data.error_code || res.status})`,
+        },
       };
     }
 
     return { status: 200, data: { ok: true } };
   } catch (err) {
     console.error("Error al contactar Telegram:", err);
-    const msg = err.name === "AbortError" ? "Tiempo de espera agotado al contactar Telegram" : "No se pudo contactar a Telegram";
+    const msg =
+      err.name === "AbortError"
+        ? "Tiempo de espera agotado al contactar api.telegram.org. Verifica que TELEGRAM_BOT_TOKEN en Netlify sea el token secreto de @BotFather (ej. 123456789:ABC...) y no el @username."
+        : `No se pudo contactar a Telegram: ${err.message}`;
     return { status: 502, data: { ok: false, error: msg } };
   }
 }
