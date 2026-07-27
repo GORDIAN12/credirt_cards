@@ -2,6 +2,10 @@
   command = "npm run build"
   publish = "dist"
 
+[[edge_functions]]
+  function = "telegram-notify"
+  path = "/api/telegram-notify"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
